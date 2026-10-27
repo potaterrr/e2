@@ -8,9 +8,11 @@
 // show a "link coming soon" note instead of going anywhere.
 const INVITE_URL = 'https://discord.gg/56Q6r3VKm8';
 
-// Road to 1,000: update MEMBER_COUNT whenever E2 grows.
-const MEMBER_COUNT = 700;
-const MEMBER_GOAL = 1000;
+// Road to the next goal: the live member count is read from the Discord invite
+// when the page loads. FALLBACK_MEMBER_COUNT is only shown if that lookup fails.
+const FALLBACK_MEMBER_COUNT = 857;
+const FIRST_GOAL = 1000;  // first milestone
+const GOAL_STEP = 500;    // after that: 1,500, 2,000, 2,500 and so on
 
 /* ========================================================= */
 
@@ -41,26 +43,43 @@ const MEMBER_GOAL = 1000;
     }
   });
 
-  /* ---------- Road to 1,000 ---------- */
-  const pct = Math.max(0, Math.min(100, (MEMBER_COUNT / MEMBER_GOAL) * 100));
-  document.querySelectorAll('[data-members]').forEach((el) => (el.textContent = fmt(MEMBER_COUNT)));
-  document.querySelectorAll('[data-goal]').forEach((el) => (el.textContent = fmt(MEMBER_GOAL)));
-  const bar = document.querySelector('.progress');
-  if (bar) {
-    bar.setAttribute('aria-valuenow', String(MEMBER_COUNT));
-    bar.setAttribute('aria-valuemax', String(MEMBER_GOAL));
-    bar.setAttribute('aria-valuetext', `${fmt(MEMBER_COUNT)} of ${fmt(MEMBER_GOAL)} members`);
+  /* ---------- Road to the next goal ---------- */
+  const goalFor = (n) => (n < FIRST_GOAL ? FIRST_GOAL : (Math.floor(n / GOAL_STEP) + 1) * GOAL_STEP);
+  let firstRender = true;
+  function renderMembers(count) {
+    const goal = goalFor(count);
+    const pct = Math.max(0, Math.min(100, (count / goal) * 100));
+    document.querySelectorAll('[data-members]').forEach((el) => (el.textContent = fmt(count)));
+    document.querySelectorAll('[data-goal]').forEach((el) => (el.textContent = fmt(goal)));
+    const bar = document.querySelector('.progress');
+    if (!bar) return;
+    bar.setAttribute('aria-valuenow', String(count));
+    bar.setAttribute('aria-valuemax', String(goal));
+    bar.setAttribute('aria-valuetext', `${fmt(count)} of ${fmt(goal)} members`);
     const fill = bar.querySelector('.progress-fill');
-    if (fill) {
-      // Grow the bar from 0 on load (skipped when the user prefers reduced motion).
-      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      if (reduce) {
-        fill.style.width = pct + '%';
-      } else {
-        fill.style.width = '0%';
-        requestAnimationFrame(() => requestAnimationFrame(() => (fill.style.width = pct + '%')));
-      }
+    if (!fill) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce || !firstRender) {
+      fill.style.width = pct + '%';
+    } else {
+      // Grow the bar from 0 on first load.
+      fill.style.width = '0%';
+      requestAnimationFrame(() => requestAnimationFrame(() => (fill.style.width = pct + '%')));
     }
+    firstRender = false;
+  }
+  renderMembers(FALLBACK_MEMBER_COUNT);
+
+  // Live count from Discord's public invite info (no login needed).
+  const inviteCode = (INVITE_URL.match(/discord\.gg\/([\w-]+)/) || [])[1];
+  if (inviteCode && window.fetch) {
+    fetch(`https://discord.com/api/v10/invites/${inviteCode}?with_counts=true`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((d) => {
+        const n = Number(d && d.approximate_member_count);
+        if (n > 0) renderMembers(n);
+      })
+      .catch(() => {});
   }
 
   /* ---------- Light / dark theme ---------- */
