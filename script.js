@@ -6,7 +6,7 @@
 // TODO(potaterrr): paste E2's permanent Discord invite link here,
 // e.g. 'https://discord.gg/your-code'. While it's '#', the Join buttons
 // show a "link coming soon" note instead of going anywhere.
-const INVITE_URL = '#';
+const INVITE_URL = 'https://discord.gg/56Q6r3VKm8';
 
 // Road to 1,000: update MEMBER_COUNT whenever E2 grows.
 const MEMBER_COUNT = 700;
